@@ -1,18 +1,20 @@
 (function () {
   "use strict";
 
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function isTypingTarget(el) {
+  function typingTarget(el) {
     if (!el || el.nodeType !== 1) return false;
-    const tag = el.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-    return Boolean(el.isContentEditable);
+    const t = el.tagName;
+    return t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || el.isContentEditable;
   }
 
-  /* ---- Subtle blob parallax ---- */
+  function scrollToSection(id) {
+    return () => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   const blobs = document.querySelector(".deco-blobs");
-  if (blobs && !prefersReducedMotion) {
+  if (blobs && !reduceMotion) {
     window.addEventListener(
       "mousemove",
       (e) => {
@@ -24,8 +26,7 @@
     );
   }
 
-  /* ---- Magnetic targets ---- */
-  if (!prefersReducedMotion) {
+  if (!reduceMotion) {
     document.querySelectorAll("[data-magnetic]").forEach((el) => {
       el.addEventListener("mousemove", (e) => {
         const r = el.getBoundingClientRect();
@@ -39,27 +40,23 @@
     });
   }
 
-  /* ---- Project cards: tilt (desktop, not when filtered dimmed) ---- */
-  document.querySelectorAll(".project-panel").forEach((card) => {
-    if (prefersReducedMotion) return;
-    card.addEventListener("mousemove", (e) => {
-      if (card.classList.contains("dimmed")) return;
-      const r = card.getBoundingClientRect();
-      const x = e.clientX - r.left;
-      const y = e.clientY - r.top;
-      const midX = r.width / 2;
-      const midY = r.height / 2;
-      const rotateX = ((y - midY) / midY) * -5;
-      const rotateY = ((x - midX) / midX) * 6;
-      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1)`;
+  if (!reduceMotion) {
+    document.querySelectorAll(".project-panel").forEach((card) => {
+      card.addEventListener("mousemove", (e) => {
+        if (card.classList.contains("dimmed")) return;
+        const r = card.getBoundingClientRect();
+        const mx = r.width / 2;
+        const my = r.height / 2;
+        const rotateX = ((e.clientY - r.top - my) / my) * -5;
+        const rotateY = ((e.clientX - r.left - mx) / mx) * 6;
+        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1)`;
+      });
+      card.addEventListener("mouseleave", () => {
+        if (!card.classList.contains("dimmed")) card.style.transform = "";
+      });
     });
-    card.addEventListener("mouseleave", () => {
-      if (card.classList.contains("dimmed")) return;
-      card.style.transform = "";
-    });
-  });
+  }
 
-  /* ---- Stack / tech filter ---- */
   const panels = [...document.querySelectorAll(".project-panel")];
   const chips = [...document.querySelectorAll(".stack-chip")];
   let activeFilter = null;
@@ -68,10 +65,8 @@
     panels.forEach((p) => {
       p.style.transform = "";
     });
-    const matches = panels.filter((p) =>
-      (p.dataset.tech || "").split(/\s+/).includes(filter)
-    );
-    if (matches.length === 0) {
+    const matches = panels.filter((p) => (p.dataset.tech || "").split(/\s+/).includes(filter));
+    if (!matches.length) {
       panels.forEach((p) => p.classList.remove("dimmed"));
       return false;
     }
@@ -105,7 +100,6 @@
     });
   });
 
-  /* ---- Command palette ---- */
   const palette = document.getElementById("palette");
   const overlay = document.getElementById("palette-overlay");
   const paletteInput = document.getElementById("palette-input");
@@ -113,48 +107,12 @@
   const openBtn = document.getElementById("palette-open-btn");
 
   const actions = [
-    {
-      id: "projects",
-      label: "Go to projects",
-      meta: "Section",
-      keys: "builds shipped portfolio",
-      run: () => document.getElementById("projects")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    },
-    {
-      id: "tools",
-      label: "Go to tools & tech",
-      meta: "Section",
-      keys: "stack skills logos languages",
-      run: () => document.getElementById("tools")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    },
-    {
-      id: "focus",
-      label: "Go to focus areas",
-      meta: "Section",
-      keys: "interests web games ml fullstack",
-      run: () => document.getElementById("focus")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    },
-    {
-      id: "education",
-      label: "Go to education",
-      meta: "Section",
-      keys: "school degree university",
-      run: () => document.getElementById("education")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    },
-    {
-      id: "work",
-      label: "Go to work",
-      meta: "Section",
-      keys: "jobs experience employment",
-      run: () => document.getElementById("work")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    },
-    {
-      id: "contact",
-      label: "Go to contact",
-      meta: "Section",
-      keys: "hello hire email hi",
-      run: () => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    },
+    { id: "projects", label: "Go to projects", meta: "Section", keys: "builds shipped portfolio", run: scrollToSection("projects") },
+    { id: "tools", label: "Go to tools & tech", meta: "Section", keys: "stack skills logos languages", run: scrollToSection("tools") },
+    { id: "focus", label: "Go to focus areas", meta: "Section", keys: "interests web games ml fullstack", run: scrollToSection("focus") },
+    { id: "education", label: "Go to education", meta: "Section", keys: "school degree university", run: scrollToSection("education") },
+    { id: "work", label: "Go to work", meta: "Section", keys: "jobs experience employment", run: scrollToSection("work") },
+    { id: "contact", label: "Go to contact", meta: "Section", keys: "hello hire email hi", run: scrollToSection("contact") },
     {
       id: "github",
       label: "Open GitHub profile",
@@ -188,26 +146,29 @@
         paletteInput.focus();
       }
       filterPalette("");
-    } else if (paletteInput) {
-      paletteInput.blur();
-    }
+    } else paletteInput?.blur();
   }
 
   function filterPalette(q) {
     const query = (q || "").trim().toLowerCase();
     filteredActions = actions.filter((a) => {
       if (!query) return true;
-      const hay = `${a.label} ${a.keys}`.toLowerCase();
-      return hay.includes(query);
+      return `${a.label} ${a.keys}`.toLowerCase().includes(query);
     });
     paletteActive = Math.min(paletteActive, Math.max(0, filteredActions.length - 1));
     renderPaletteList();
   }
 
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
   function renderPaletteList() {
     if (!paletteList) return;
     paletteList.innerHTML = "";
-    if (filteredActions.length === 0) {
+    if (!filteredActions.length) {
       const li = document.createElement("li");
       li.className = "palette-empty";
       li.textContent = "No matches — try another word.";
@@ -227,18 +188,11 @@
     paletteList.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
   }
 
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s;
-    return d.innerHTML;
-  }
-
   function runPaletteAction(index) {
     const a = filteredActions[index];
     if (!a) return;
-    const fn = a.run;
     setPaletteOpen(false);
-    Promise.resolve(fn()).catch(() => {});
+    Promise.resolve(a.run()).catch(() => {});
   }
 
   openBtn?.addEventListener("click", () => setPaletteOpen(true));
@@ -275,36 +229,28 @@
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
-      if (palette && !palette.hidden) {
-        setPaletteOpen(false);
-        return;
-      }
-      if (!isTypingTarget(e.target)) setPaletteOpen(true);
+      if (palette && !palette.hidden) setPaletteOpen(false);
+      else if (!typingTarget(e.target)) setPaletteOpen(true);
       return;
     }
     if (palette && !palette.hidden) return;
-    if (isTypingTarget(e.target)) return;
+    if (typingTarget(e.target)) return;
     if (e.key === "/") {
       e.preventDefault();
       setPaletteOpen(true);
     }
   });
 
-  /* ---- Nav scroll spy + mobile menu ---- */
   const navLinks = document.querySelectorAll(".nav-links a[data-section]");
-  const sectionEls = [...navLinks]
-    .map((a) => document.getElementById(a.dataset.section))
-    .filter(Boolean);
+  const sectionEls = [...navLinks].map((a) => document.getElementById(a.dataset.section)).filter(Boolean);
 
   function updateActiveNav() {
-    const scrollY = window.scrollY + 110;
+    const y = window.scrollY + 110;
     let current = sectionEls[0]?.id;
     for (const sec of sectionEls) {
-      if (sec.offsetTop <= scrollY) current = sec.id;
+      if (sec.offsetTop <= y) current = sec.id;
     }
-    navLinks.forEach((a) => {
-      a.classList.toggle("active", a.dataset.section === current);
-    });
+    navLinks.forEach((a) => a.classList.toggle("active", a.dataset.section === current));
   }
 
   window.addEventListener("scroll", updateActiveNav, { passive: true });
@@ -315,7 +261,7 @@
   if (toggle && menu) {
     toggle.addEventListener("click", () => {
       const open = toggle.getAttribute("aria-expanded") === "true";
-      toggle.setAttribute("aria-expanded", !open);
+      toggle.setAttribute("aria-expanded", String(!open));
       menu.classList.toggle("open", !open);
     });
     menu.querySelectorAll("a").forEach((a) => {
@@ -326,7 +272,6 @@
     });
   }
 
-  /* ---- Reveal on scroll ---- */
   const reveals = document.querySelectorAll(".reveal");
   if (reveals.length && "IntersectionObserver" in window) {
     const io = new IntersectionObserver(
@@ -341,5 +286,4 @@
   } else {
     reveals.forEach((el) => el.classList.add("visible"));
   }
-
 })();
